@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages | Vortex</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="noir-chat-style.css">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-text">VORTEX</div>
+            <div class="logo-subtitle">Social Network</div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="noir-feed.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                </svg>
+                <span>Home</span>
+            </a>
+            <a href="noir-profile.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span>Profile</span>
+            </a>
+            <a href="noir-chat.html" class="nav-item active">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>Messages</span>
+            </a>
+            <a href="noir-notifications.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span>Alerts</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar" id="sidebar-avatar">
+                    <span id="sidebar-initial">U</span>
+                </div>
+                <div class="user-info">
+                    <p class="username" id="sidebar-username">User</p>
+                    <p class="status">Active</p>
+                </div>
+            </div>
+            <button class="btn-logout" id="logout-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Message Notification Popup -->
+    <div id="message-notification" class="message-notification" style="display: none;">
+        <div class="notification-content">
+            <div class="notification-avatar">
+                <span id="notif-initial">U</span>
+            </div>
+            <div class="notification-text">
+                <p class="notification-sender" id="notif-sender">User</p>
+                <p class="notification-message" id="notif-message">New message</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conversations List -->
+    <div class="conversations-panel">
+        <div class="panel-header">
+            <h2>Messages</h2>
+            <button class="btn-new-chat" id="new-chat-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="search-container">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="text" id="search-conversations" placeholder="Search conversations...">
+        </div>
+
+        <div id="conversations-list" class="conversations-list">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading conversations...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Area -->
+    <main class="chat-area">
+        <div class="empty-chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <h3>Select a conversation</h3>
+            <p>Choose a conversation from the list to start messaging</p>
+        </div>
+
+        <div id="active-chat" class="active-chat" style="display: none;">
+            <div class="chat-header">
+                <div class="chat-user-info">
+                    <div class="avatar small" id="chat-avatar">
+                        <span id="chat-initial">U</span>
+                    </div>
+                    <div>
+                        <h3 id="chat-username">User</h3>
+                        <span class="online-status">Active now</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn-clear-chat" id="clear-chat-btn" style="display: none;" title="Clear conversation">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                    </button>
+                    <button class="btn-close-chat" id="close-chat-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="messages-container" class="messages-container">
+                <!-- Messages will be loaded here -->
+                <!-- Example message structure with menu:
+                <div class="message sent/received">
+                    <div class="message-bubble">
+                        <div class="message-header">
+                            <button class="message-menu-btn">⋮</button>
+                            <div class="message-menu-dropdown">
+                                <button class="menu-item" onclick="editMessage(id)">Edit</button>
+                                <button class="menu-item" onclick="deleteMessage(id)">Delete</button>
+                            </div>
+                        </div>
+                        <p>Message content</p>
+                        <span class="message-time">Time</span>
+                    </div>
+                </div>
+                -->
+            </div>
+
+            <form id="message-form" class="message-form">
+                <input type="file" id="message-media" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,video/mp4,video/webm,video/ogg" style="display: none;">
+                <button type="button" class="btn-attach" id="attach-btn" title="Attach media">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                </button>
+                <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                <button type="submit" class="btn-send">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </form>
+            <div id="media-preview" class="media-preview" style="display: none;">
+                <div class="preview-content">
+                    <img id="preview-image" style="display: none;">
+                    <video id="preview-video" style="display: none;" controls></video>
+                    <button class="btn-remove-preview" id="remove-preview">×</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Confirm Modal -->
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="color: var(--noir-text); margin-bottom: 1.5rem;"></p>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <button id="confirm-cancel" style="padding: 0.625rem 1.5rem; background: var(--noir-medium); border: 1px solid var(--border-soft); border-radius: 6px; color: var(--noir-text); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">Cancel</button>
+                    <button id="confirm-ok" style="padding: 0.625rem 1.5rem; background: var(--noir-white); border: 1px solid var(--noir-white); border-radius: 6px; color: var(--noir-black); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Message Modal -->
+    <div class="modal" id="edit-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Edit Message</h2>
+                <button class="btn-close" id="close-edit-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="edit-message-text" style="width: 100%; min-height: 120px; padding: 0.875rem; background: var(--noir-dark); border: 1px solid var(--border-soft); border-radius: 8px; color: var(--noir-text); font-family: inherit; font-size: 0.9375rem; resize: vertical; margin-bottom: 1rem;"></textarea>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <button id="cancel-edit" style="padding: 0.625rem 1.5rem; background: var(--noir-medium); border: 1px solid var(--border-soft); border-radius: 6px; color: var(--noir-text); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">Cancel</button>
+                    <button id="save-edit" style="padding: 0.625rem 1.5rem; background: var(--noir-white); border: 1px solid var(--noir-white); border-radius: 6px; color: var(--noir-black); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Chat Modal -->
+    <div class="modal" id="new-chat-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Conversation</h2>
+                <button class="btn-close" id="close-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input type="text" id="search-users" placeholder="Search users...">
+                </div>
+                <div id="users-list" class="users-list">
+                    <!-- Users will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000';
+        const token = localStorage.getItem('accessToken');
+        let currentUser = null;
+        let lastMessageCount = 0;
+        let isSendingMessage = false;
+        let conversations = [];
+        let currentConversationId = null;
+        let messagePollingInterval = null;
+
+        if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        async function loadUserInfo() {
+            try {
+                const response = await fetch(`${API_URL}/users/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                currentUser = await response.json();
+                
+                const initial = currentUser.username.charAt(0).toUpperCase();
+                const sidebarAvatar = document.getElementById('sidebar-avatar');
+                
+                if (currentUser.avatar_url) {
+                    sidebarAvatar.innerHTML = `<img src="${API_URL}${currentUser.avatar_url}" alt="${currentUser.username}">`;
+                } else {
+                    sidebarAvatar.innerHTML = `<span id="sidebar-initial">${initial}</span>`;
+                }
+                
+                document.getElementById('sidebar-username').textContent = currentUser.username;
+                loadConversations();
+            } catch (error) {
+                console.error('Error loading user:', error);
+                localStorage.removeItem('accessToken');
+                window.location.href = 'index.html';
+            }
+        }
+
+        async function loadConversations() {
+            try {
+                const response = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                conversations = await response.json();
+                displayConversations(conversations);
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+            }
+        }
+
+        function displayConversations(convs) {
+            const container = document.getElementById('conversations-list');
+            
+            if (convs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No conversations yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = convs.map(conv => {
+                const initial = conv.username.charAt(0).toUpperCase();
+                return `
+                    <div class="conversation-item ${conv.other_user_id === currentConversationId ? 'active' : ''}" 
+                         onclick="openConversation(${conv.other_user_id}, '${escapeHtml(conv.username)}', '${conv.avatar_url || ''}')">
+                        <div class="avatar small">
+                            ${conv.avatar_url 
+                                ? `<img src="${API_URL}${conv.avatar_url}" alt="Avatar">` 
+                                : `<span>${initial}</span>`}
+                        </div>
+                        <div class="conversation-info">
+                            <div class="conversation-header">
+                                <span class="conversation-name">${escapeHtml(conv.username)}</span>
+                            </div>
+                            ${conv.last_message ? `<p class="last-message">${escapeHtml(conv.last_message.substring(0, 40))}...</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function openConversation(userId, username, avatarUrl) {
+            currentConversationId = userId;
+            
+            document.querySelector('.empty-chat').style.display = 'none';
+            document.getElementById('active-chat').style.display = 'flex';
+            
+            document.getElementById('chat-username').textContent = username;
+            const chatAvatar = document.getElementById('chat-avatar');
+            
+            // Clear and rebuild avatar
+            chatAvatar.innerHTML = '';
+            if (avatarUrl && avatarUrl !== 'null' && avatarUrl !== '') {
+                const img = document.createElement('img');
+                img.src = `${API_URL}${avatarUrl}`;
+                img.alt = username;
+                chatAvatar.appendChild(img);
+            } else {
+                const span = document.createElement('span');
+                span.id = 'chat-initial';
+                span.textContent = username.charAt(0).toUpperCase();
+                chatAvatar.appendChild(span);
+            }
+            
+            displayConversations(conversations);
+            lastMessageCount = 0;
+            await loadMessages(userId, true);
+            
+            // Show clear chat button
+            document.getElementById('clear-chat-btn').style.display = 'flex';
+            
+            if (messagePollingInterval) clearInterval(messagePollingInterval);
+            messagePollingInterval = setInterval(() => {
+                if (!isSendingMessage) {
+                    loadMessages(userId);
+                }
+            }, 3000);
+        }
+
+        async function loadMessages(userId, force = false) {
+            try {
+                const response = await fetch(`${API_URL}/messages/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const messages = await response.json();
+                
+                // Only update if message count changed or forced
+                if (force || messages.length !== lastMessageCount) {
+                    lastMessageCount = messages.length;
+                    displayMessages(messages);
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        function displayMessages(messages) {
+            const container = document.getElementById('messages-container');
+            container.innerHTML = messages.map(msg => {
+                let mediaHtml = '';
+                if (msg.media_url) {
+                    if (isVideo(msg.media_url)) {
+                        mediaHtml = `<video controls style="max-width: 300px; border-radius: 8px; margin-top: 0.5rem;">
+                            <source src="${API_URL}${msg.media_url}" type="video/mp4">
+                        </video>`;
+                    } else {
+                        mediaHtml = `<img src="${API_URL}${msg.media_url}" style="max-width: 300px; border-radius: 8px; margin-top: 0.5rem;">`;
+                    }
+                }
+                const isMine = msg.sender_id === currentUser.id;
+                const hasMedia = !!msg.media_url;
+                return `
+                    <div class="message ${isMine ? 'sent' : 'received'}">
+                        <div class="message-bubble">
+                            <div class="message-header">
+                                <button class="message-menu-btn" onclick="toggleMessageMenu(event, ${msg.id})">⋮</button>
+                                <div class="message-menu-dropdown" id="menu-${msg.id}">
+                                    ${!hasMedia ? `<button class="menu-item" onclick="editMessage(${msg.id}, '${escapeHtml(msg.message || '').replace(/'/g, "\\'")}')">Edit</button>` : ''}
+                                    <button class="menu-item danger" onclick="deleteMessage(${msg.id})">Delete</button>
+                                </div>
+                            </div>
+                            ${msg.message ? `<p>${escapeHtml(msg.message)}</p>` : ''}
+                            ${mediaHtml}
+                            <span class="message-time">${formatTime(msg.timestamp)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function toggleMessageMenu(event, msgId) {
+            event.stopPropagation();
+            const menu = document.getElementById(`menu-${msgId}`);
+            document.querySelectorAll('.message-menu-dropdown').forEach(m => {
+                if (m.id !== `menu-${msgId}`) m.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+        }
+
+        // Custom confirm dialog
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                document.getElementById('confirm-title').textContent = title;
+                document.getElementById('confirm-message').textContent = message;
+                modal.classList.add('active');
+                
+                const handleOk = () => {
+                    cleanup();
+                    resolve(true);
+                };
+                const handleCancel = () => {
+                    cleanup();
+                    resolve(false);
+                };
+                const cleanup = () => {
+                    modal.classList.remove('active');
+                    document.getElementById('confirm-ok').removeEventListener('click', handleOk);
+                    document.getElementById('confirm-cancel').removeEventListener('click', handleCancel);
+                };
+                
+                document.getElementById('confirm-ok').addEventListener('click', handleOk);
+                document.getElementById('confirm-cancel').addEventListener('click', handleCancel);
+            });
+        }
+
+        // Custom edit message dialog
+        let currentEditMessageId = null;
+        function showEditMessage(msgId, currentText) {
+            return new Promise((resolve) => {
+                currentEditMessageId = msgId;
+                const modal = document.getElementById('edit-modal');
+                const textarea = document.getElementById('edit-message-text');
+                textarea.value = currentText;
+                modal.classList.add('active');
+                textarea.focus();
+                
+                const handleSave = () => {
+                    const newText = textarea.value.trim();
+                    cleanup();
+                    resolve(newText !== currentText ? newText : null);
+                };
+                const handleCancel = () => {
+                    cleanup();
+                    resolve(null);
+                };
+                const cleanup = () => {
+                    modal.classList.remove('active');
+                    document.getElementById('save-edit').removeEventListener('click', handleSave);
+                    document.getElementById('cancel-edit').removeEventListener('click', handleCancel);
+                    document.getElementById('close-edit-modal').removeEventListener('click', handleCancel);
+                };
+                
+                document.getElementById('save-edit').addEventListener('click', handleSave);
+                document.getElementById('cancel-edit').addEventListener('click', handleCancel);
+                document.getElementById('close-edit-modal').addEventListener('click', handleCancel);
+            });
+        }
+
+        async function editMessage(msgId, currentText) {
+            const newText = await showEditMessage(msgId, currentText);
+            if (newText && newText.trim()) {
+                try {
+                    const response = await fetch(`${API_URL}/messages/${msgId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ message: newText.trim() })
+                    });
+                    if (!response.ok) throw new Error('Failed to edit message');
+                    await loadMessages(currentConversationId, true);
+                } catch (error) {
+                    console.error('Error editing message:', error);
+                }
+            }
+        }
+
+        async function deleteMessage(msgId) {
+            const confirmed = await showConfirm('Delete message', 'Delete this message?');
+            if (!confirmed) return;
+            try {
+                const response = await fetch(`${API_URL}/messages/${msgId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to delete message');
+                await loadMessages(currentConversationId, true);
+            } catch (error) {
+                console.error('Error deleting message:', error);
+            }
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.message-menu-dropdown').forEach(m => m.classList.remove('show'));
+        });
+
+        function isVideo(url) {
+            return /\.(mp4|webm|ogg|mov)$/i.test(url);
+        }
+
+        let selectedMediaFile = null;
+
+        document.getElementById('attach-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            document.getElementById('message-media').click();
+        });
+
+        // Clipboard paste support
+        document.getElementById('message-input').addEventListener('paste', (e) => {
+            e.stopPropagation();
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    e.preventDefault();
+                    const blob = item.getAsFile();
+                    selectedMediaFile = blob;
+                    
+                    const preview = document.getElementById('media-preview');
+                    const previewImg = document.getElementById('preview-image');
+                    const previewVideo = document.getElementById('preview-video');
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        previewImg.src = event.target.result;
+                        previewImg.style.display = 'block';
+                        previewVideo.style.display = 'none';
+                        preview.style.display = 'flex';
+                    };
+                    reader.readAsDataURL(blob);
+                    break;
+                }
+            }
+        });
+
+        document.getElementById('message-media').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedMediaFile = file;
+                const preview = document.getElementById('media-preview');
+                const previewImg = document.getElementById('preview-image');
+                const previewVideo = document.getElementById('preview-video');
+                
+                preview.style.display = 'block';
+                
+                if (file.type.startsWith('video/')) {
+                    previewVideo.src = URL.createObjectURL(file);
+                    previewVideo.style.display = 'block';
+                    previewImg.style.display = 'none';
+                } else {
+                    previewImg.src = URL.createObjectURL(file);
+                    previewImg.style.display = 'block';
+                    previewVideo.style.display = 'none';
+                }
+            }
+        });
+
+        document.getElementById('remove-preview').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            selectedMediaFile = null;
+            document.getElementById('message-media').value = '';
+            document.getElementById('media-preview').style.display = 'none';
+            document.getElementById('preview-image').src = '';
+            document.getElementById('preview-video').src = '';
+        });
+
+        document.getElementById('message-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            
+            if (!content && !selectedMediaFile) return;
+            if (!currentConversationId) return;
+            
+            // Stop polling during send
+            isSendingMessage = true;
+            if (messagePollingInterval) clearInterval(messagePollingInterval);
+            
+            try {
+                const formData = new FormData();
+                formData.append('receiver_id', currentConversationId);
+                if (content) formData.append('message', content);
+                if (selectedMediaFile) formData.append('media', selectedMediaFile);
+                
+                const response = await fetch(`${API_URL}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Failed to send message');
+                
+                input.value = '';
+                selectedMediaFile = null;
+                document.getElementById('message-media').value = '';
+                document.getElementById('media-preview').style.display = 'none';
+                document.getElementById('preview-image').src = '';
+                document.getElementById('preview-video').src = '';
+                
+                // Force refresh messages
+                await loadMessages(currentConversationId, true);
+                
+                // Restart polling
+                isSendingMessage = false;
+                messagePollingInterval = setInterval(() => {
+                    if (!isSendingMessage) {
+                        loadMessages(currentConversationId);
+                    }
+                }, 3000);
+            } catch (error) {
+                alert('Error: ' + error.message);
+                isSendingMessage = false;
+                // Restart polling even on error
+                messagePollingInterval = setInterval(() => {
+                    if (!isSendingMessage) {
+                        loadMessages(currentConversationId);
+                    }
+                }, 3000);
+            }
+        });
+
+        document.getElementById('new-chat-btn').addEventListener('click', async () => {
+            document.getElementById('new-chat-modal').classList.add('active');
+            document.getElementById('search-users').value = '';
+            await loadUsers('');
+        });
+
+        document.getElementById('search-users').addEventListener('input', async (e) => {
+            await loadUsers(e.target.value);
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('new-chat-modal').classList.remove('active');
+        });
+
+        document.getElementById('close-chat-btn').addEventListener('click', () => {
+            currentConversationId = null;
+            if (messagePollingInterval) clearInterval(messagePollingInterval);
+            document.querySelector('.empty-chat').style.display = 'flex';
+            document.getElementById('active-chat').style.display = 'none';
+            displayConversations(conversations);
+        });
+
+        async function loadUsers(query = '') {
+            try {
+                if (!query || query.trim().length === 0) {
+                    document.getElementById('users-list').innerHTML = '<div class="empty-state"><p>Type to search for users...</p></div>';
+                    return;
+                }
+                const response = await fetch(`${API_URL}/users/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const users = await response.json();
+                const filteredUsers = users.filter(u => u.id !== currentUser.id);
+                if (filteredUsers.length === 0) {
+                    document.getElementById('users-list').innerHTML = '<div class="empty-state"><p>No users found</p></div>';
+                } else {
+                    displayUsers(filteredUsers);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function displayUsers(users) {
+            const container = document.getElementById('users-list');
+            container.innerHTML = users.map(user => {
+                const initial = user.username.charAt(0).toUpperCase();
+                return `
+                    <div class="user-item" onclick="startConversation(${user.id}, '${escapeHtml(user.username)}', '${user.avatar_url || ''}')">
+                        <div class="avatar small">
+                            ${user.avatar_url 
+                                ? `<img src="${API_URL}${user.avatar_url}" alt="Avatar">` 
+                                : `<span>${initial}</span>`}
+                        </div>
+                        <span class="user-name">${escapeHtml(user.username)}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function startConversation(userId, username, avatarUrl) {
+            try {
+                document.getElementById('new-chat-modal').classList.remove('active');
+                await loadConversations();
+                openConversation(userId, username, avatarUrl);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            const displayMinutes = minutes.toString().padStart(2, '0');
+            return `${displayHours}:${displayMinutes} ${ampm}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Clear individual conversation
+        async function clearConversation(userId) {
+            const confirmed = await showConfirm('Clear conversation', 'Delete this conversation? This cannot be undone.');
+            if (!confirmed) return;
+            try {
+                const response = await fetch(`${API_URL}/messages/conversation/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to clear conversation');
+                await loadConversations();
+                document.querySelector('.empty-chat').style.display = 'flex';
+                document.getElementById('active-chat').style.display = 'none';
+                document.getElementById('clear-chat-btn').style.display = 'none';
+                currentConversationId = null;
+                if (messagePollingInterval) clearInterval(messagePollingInterval);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        document.getElementById('clear-chat-btn').addEventListener('click', () => {
+            if (currentConversationId) {
+                clearConversation(currentConversationId);
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('accessToken');
+            window.location.href = 'index.html';
+        });
+
+        // Message notification system
+        let lastNotificationCheck = new Date();
+        let shownNotifications = new Set();
+
+        async function checkNewMessages() {
+            try {
+                const response = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const convs = await response.json();
+                
+                for (const conv of convs) {
+                    if (conv.last_message_time) {
+                        const msgTime = new Date(conv.last_message_time);
+                        const notifKey = `${conv.other_user_id}-${conv.last_message_time}`;
+                        
+                        // Show notification if message is new and not from current open conversation
+                        if (msgTime > lastNotificationCheck && 
+                            !shownNotifications.has(notifKey) &&
+                            conv.other_user_id !== currentConversationId &&
+                            conv.last_message_sender_id !== currentUser.id) {
+                            
+                            showMessageNotification(
+                                conv.username,
+                                conv.last_message || 'New message',
+                                conv.avatar_url,
+                                conv.other_user_id
+                            );
+                            shownNotifications.add(notifKey);
+                        }
+                    }
+                }
+                lastNotificationCheck = new Date();
+            } catch (error) {
+                console.error('Error checking notifications:', error);
+            }
+        }
+
+        function showMessageNotification(sender, message, avatarUrl, userId) {
+            const notif = document.getElementById('message-notification');
+            const initial = sender.charAt(0).toUpperCase();
+            
+            const avatarElement = document.querySelector('.notification-avatar');
+            if (avatarUrl) {
+                avatarElement.innerHTML = `<img src="${API_URL}${avatarUrl}" alt="${sender}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+            } else {
+                avatarElement.innerHTML = `<span id="notif-initial">${initial}</span>`;
+            }
+            
+            document.getElementById('notif-sender').textContent = sender;
+            document.getElementById('notif-message').textContent = message.substring(0, 50) + (message.length > 50 ? '...' : '');
+            
+            notif.style.display = 'block';
+            notif.onclick = () => {
+                openConversation(userId, sender, avatarUrl);
+                notif.style.display = 'none';
+            };
+            
+            setTimeout(() => {
+                notif.style.display = 'none';
+            }, 5000);
+        }
+
+        // Check for new messages every 5 seconds
+        setInterval(checkNewMessages, 5000);
+
+        loadUserInfo();
+    </script>
+</body>
+</html>
