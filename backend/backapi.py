@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, F
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, text, Boolean, inspect
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, text, Boolean, inspect, func, distinct
 from sqlalchemy.orm import sessionmaker, Session, declarative_base, Mapped, mapped_column
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
@@ -14,16 +14,8 @@ import shutil
 import json
 import re
 from pathlib import Path
-import bcrypt
 from dotenv import load_dotenv
 from collections import defaultdict
-
-# Ensure newer passlib releases can read the version from bcrypt>=4
-if not hasattr(bcrypt, "__about__"):
-    class _BcryptAbout:
-        __version__ = getattr(bcrypt, "__version__", "unknown")
-
-    bcrypt.__about__ = _BcryptAbout()
 
 load_dotenv()
 
@@ -31,15 +23,33 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable is not set.")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=50,           # Optimized for 1 CPU / 6GB RAM
+    max_overflow=100,       # Reduced for memory constraints
+    pool_timeout=60,        # Increased timeout for high load
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_reset_on_return='rollback',
+    echo_pool=False         # Disable debug logging for performance
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expire_on_commit=False)
 Base = declarative_base()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "a_very_secret_key_for_development")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Support both Argon2 (new) and bcrypt (legacy) for backward compatibility
+# Optimized for SPEED with 1000 concurrent users
+pwd_context = CryptContext(
+    schemes=["argon2", "bcrypt"],
+    deprecated="auto",
+    argon2__time_cost=1,           # Minimum time cost
+    argon2__memory_cost=2048,      # 2MB (optimized for speed)
+    argon2__parallelism=1,         # 1 thread
+    bcrypt__rounds=4
+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 class User(Base):
@@ -63,7 +73,7 @@ class BlogPost(Base):
     title = Column(String(255), nullable=False)
     content = Column(String(10000), nullable=False)
     media_url = Column(String(500), nullable=True)
-    repost_of = Column(Integer, nullable=True)  # ID of original post if this is a repost
+    repost_of = Column(Integer, nullable=True)  
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -72,7 +82,7 @@ class Comment(Base):
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, nullable=False)
     user_id = Column(Integer, nullable=False)
-    parent_comment_id = Column(Integer, nullable=True)  # For replies to comments
+    parent_comment_id = Column(Integer, nullable=True)  
     content = Column(String(1000), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -90,11 +100,11 @@ class Report(Base):
     __tablename__ = "reports"
     id = Column(Integer, primary_key=True, index=True)
     reporter_id = Column(Integer, nullable=False)
-    report_type = Column(String(50), nullable=False)  # 'user' or 'message' or 'post'
+    report_type = Column(String(50), nullable=False)  
     target_id = Column(Integer, nullable=False)
     reason = Column(String(100), nullable=False)
     details = Column(String(1000), nullable=True)
-    status = Column(String(50), default="pending")  # pending, reviewed, resolved
+    status = Column(String(50), default="pending")  
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class BlockedUser(Base):
@@ -116,7 +126,7 @@ class Repost(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
     post_id = Column(Integer, nullable=False)
-    quote_text = Column(String(500), nullable=True)  # For quote retweets
+    quote_text = Column(String(500), nullable=True)  
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Bookmark(Base):
@@ -137,7 +147,7 @@ class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, nullable=False)
-    type = Column(String(50), nullable=False)  # like, comment, follow, mention, repost
+    type = Column(String(50), nullable=False)  
     from_user_id = Column(Integer, nullable=False)
     post_id = Column(Integer, nullable=True)
     comment_id = Column(Integer, nullable=True)
@@ -159,7 +169,7 @@ class Poll(Base):
     id = Column(Integer, primary_key=True, index=True)
     post_id = Column(Integer, nullable=False)
     question = Column(String(500), nullable=False)
-    options = Column(String(2000), nullable=False)  # JSON string of options
+    options = Column(String(2000), nullable=False)  
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -193,7 +203,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     allow_mentions: bool = True
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -233,7 +243,7 @@ class BlogPostResponse(BaseModel):
     is_liked: Optional[bool] = False
     is_reposted: Optional[bool] = False
     is_bookmarked: Optional[bool] = False
-    
+
     class Config:
         from_attributes = True
 
@@ -253,12 +263,12 @@ class CommentResponse(BaseModel):
     author_avatar_url: Optional[str] = None
     like_count: Optional[int] = 0
     reply_count: Optional[int] = 0
-    
+
     class Config:
         from_attributes = True
 
 class ReportCreate(BaseModel):
-    report_type: str  # 'user', 'message', or 'post'
+    report_type: str  
     target_id: int
     reason: str
     details: Optional[str] = None
@@ -272,7 +282,7 @@ class ReportResponse(BaseModel):
     details: Optional[str] = None
     status: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -293,7 +303,7 @@ class MessageResponse(BaseModel):
     read_status: bool
     sender_username: Optional[str] = None
     receiver_username: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -309,7 +319,7 @@ class NotificationResponse(BaseModel):
     created_at: datetime
     from_username: Optional[str] = None
     from_avatar_url: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -327,7 +337,7 @@ class PollResponse(BaseModel):
     total_votes: int
     user_voted: Optional[int] = None
     expires_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -335,23 +345,29 @@ class RepostCreate(BaseModel):
     post_id: int
     quote_text: Optional[str] = None
 
-
 def ensure_schema():
     """Backfill columns that may be missing in existing databases."""
     try:
+        # First, create all tables if they don't exist (checkfirst=True avoids errors)
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        print("[schema] Database tables created/verified successfully")
+        
+        # Then backfill any missing columns
         with engine.begin() as connection:
             inspector = inspect(connection)
-            user_columns = {column["name"] for column in inspector.get_columns("users")}
-            if "allow_mentions" not in user_columns:
-                connection.execute(
-                    text(
-                        "ALTER TABLE users ADD COLUMN allow_mentions TINYINT(1) NOT NULL DEFAULT 1"
+            # Check if users table exists before checking columns
+            if inspector.has_table("users"):
+                user_columns = {column["name"] for column in inspector.get_columns("users")}
+                if "allow_mentions" not in user_columns:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN allow_mentions TINYINT(1) NOT NULL DEFAULT 1"
+                        )
                     )
-                )
-    except Exception as exc:  # pragma: no cover - defensive safety net
-        print(f"[schema] Unable to ensure allow_mentions column: {exc}")
+                    print("[schema] Added allow_mentions column")
+    except Exception as exc:  
+        print(f"[schema] Schema check encountered issue (may be normal with multiple workers): {exc}")
 
-# Create uploads directory
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 (UPLOAD_DIR / "avatars").mkdir(exist_ok=True)
@@ -370,7 +386,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files for uploads
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 def save_upload_file(upload_file: UploadFile, destination: Path) -> str:
@@ -388,7 +403,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -432,7 +446,7 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     db_user_email = get_user_by_email(db, email=user.email)
     if db_user_email:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     db_user_username = db.query(User).filter(User.username == user.username).first()
     if db_user_username:
         raise HTTPException(status_code=400, detail="Username already taken")
@@ -474,13 +488,12 @@ async def update_user_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Check if username is being changed and if it's already taken
+
     if user_update.username and user_update.username != current_user.username:
         existing_user = db.query(User).filter(User.username == user_update.username).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Username already taken")
-    
-    # Build update dict
+
     update_data = {}
     if user_update.username is not None:
         update_data['username'] = user_update.username
@@ -492,10 +505,9 @@ async def update_user_profile(
         update_data['bio'] = user_update.bio
     if user_update.allow_mentions is not None:
         update_data['allow_mentions'] = user_update.allow_mentions
-    
+
     update_data['updated_at'] = datetime.utcnow()
-    
-    # Update using SQLAlchemy update
+
     db.query(User).filter(User.id == current_user.id).update(update_data)
     db.commit()
     db.refresh(current_user)
@@ -508,20 +520,19 @@ async def upload_avatar(
     db: Session = Depends(get_db)
 ):
     """Upload or update user avatar"""
-    # Save avatar file
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"{timestamp}_{current_user.id}_{avatar.filename}"
     file_path = UPLOAD_DIR / "avatars" / filename
     avatar_url = save_upload_file(avatar, file_path)
-    
-    # Update user avatar_url
+
     db.query(User).filter(User.id == current_user.id).update({
         'avatar_url': avatar_url,
         'updated_at': datetime.utcnow()
     })
     db.commit()
     db.refresh(current_user)
-    
+
     return {"avatar_url": avatar_url, "message": "Avatar uploaded successfully"}
 
 @app.post("/users/me/change-password")
@@ -530,14 +541,13 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Verify current password
+
     if not verify_password(password_change.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
         )
-    
-    # Update password using SQLAlchemy update
+
     db.query(User).filter(User.id == current_user.id).update({
         'hashed_password': get_password_hash(password_change.new_password),
         'updated_at': datetime.utcnow()
@@ -554,8 +564,6 @@ async def delete_account(
     db.commit()
     return {"message": "Account deleted successfully"}
 
-# ========== BLOG POST ENDPOINTS ==========
-
 @app.post("/posts", response_model=BlogPostResponse, status_code=status.HTTP_201_CREATED)
 async def create_blog_post(
     title: str = Form(...),
@@ -570,7 +578,7 @@ async def create_blog_post(
         filename = f"{timestamp}_{current_user.id}_{media.filename}"
         file_path = UPLOAD_DIR / "posts" / filename
         media_url = save_upload_file(media, file_path)
-    
+
     db_post = BlogPost(
         user_id=current_user.id,
         title=title,
@@ -580,15 +588,13 @@ async def create_blog_post(
     db.add(db_post)
     db.commit()
     db.refresh(db_post)
-    
-    # Create mention notifications
+
     create_mention_notifications(content, db_post.id, None, current_user.id, db)
     db.commit()
-    
-    # Get user data for response
+
     user = db.query(User).filter(User.id == current_user.id).first()
     avatar_url_str = str(user.avatar_url) if (user and hasattr(user, 'avatar_url') and user.avatar_url is not None) else None
-    
+
     response = BlogPostResponse.model_validate(db_post)
     response.author_username = str(current_user.username)
     response.author_avatar_url = avatar_url_str
@@ -601,45 +607,70 @@ async def get_all_posts(
     search: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(BlogPost, User).join(User, BlogPost.user_id == User.id)
+    # Limit the maximum number of posts to prevent overload
+    limit = min(limit, 50)
     
+    # Subqueries for counts to avoid N+1 problem
+    like_count_sub = db.query(func.count(Like.id)).filter(Like.post_id == BlogPost.id).correlate(BlogPost).as_scalar()
+    comment_count_sub = db.query(func.count(Comment.id)).filter(Comment.post_id == BlogPost.id).correlate(BlogPost).as_scalar()
+    repost_count_sub = db.query(func.count(Repost.id)).filter(Repost.post_id == BlogPost.id).correlate(BlogPost).as_scalar()
+
+    query = db.query(
+        BlogPost, 
+        User, 
+        like_count_sub.label("like_count"),
+        comment_count_sub.label("comment_count"),
+        repost_count_sub.label("repost_count")
+    ).join(User, BlogPost.user_id == User.id)
+
     if search:
         query = query.filter(
             (BlogPost.title.contains(search)) | (BlogPost.content.contains(search))
         )
-    
-    posts = query.order_by(BlogPost.created_at.desc()).offset(skip).limit(limit).all()
-    
+
+    posts_data = query.order_by(BlogPost.created_at.desc()).offset(skip).limit(limit).all()
+
     results = []
-    for post, user in posts:
+    for post, user, like_count, comment_count, repost_count in posts_data:
         post_response = BlogPostResponse.model_validate(post)
         post_response.author_username = user.username
         avatar_url_str = str(user.avatar_url) if (hasattr(user, 'avatar_url') and user.avatar_url is not None) else None
         post_response.author_avatar_url = avatar_url_str
-        
-        # Add counts (wrapped in try-catch for tables that might not exist yet)
-        try:
-            post_response.like_count = db.query(Like).filter(Like.post_id == post.id).count()
-            post_response.comment_count = db.query(Comment).filter(Comment.post_id == post.id).count()
-            post_response.repost_count = db.query(Repost).filter(Repost.post_id == post.id).count()
-        except:
-            post_response.like_count = 0
-            post_response.comment_count = 0
-            post_response.repost_count = 0
-        
+
+        post_response.like_count = like_count
+        post_response.comment_count = comment_count
+        post_response.repost_count = repost_count
+
         results.append(post_response)
-    
+
     return results
 
 @app.get("/posts/{post_id}", response_model=BlogPostResponse)
-async def get_post(post_id: int, db: Session = Depends(get_db)):
+async def get_post(
+    post_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    
+
     user = db.query(User).filter(User.id == post.user_id).first()
     post_response = BlogPostResponse.model_validate(post)
     post_response.author_username = str(user.username) if user else None
+    post_response.author_avatar_url = str(user.avatar_url) if (hasattr(user, 'avatar_url') and user.avatar_url) else None
+    
+    # Add counts
+    post_response.like_count = db.query(Like).filter(Like.post_id == post.id).count()
+    post_response.comment_count = db.query(Comment).filter(Comment.post_id == post.id).count()
+    
+    # Check if current user liked the post
+    liked = db.query(Like).filter(
+        Like.post_id == post.id,
+        Like.user_id == current_user.id
+    ).first()
+    post_response.is_liked = liked is not None
+    
     return post_response
 
 @app.put("/posts/{post_id}", response_model=BlogPostResponse)
@@ -652,22 +683,21 @@ async def update_post(
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    
-    # Compare values properly
+
     if post.user_id.__eq__(current_user.id) is False:
         raise HTTPException(status_code=403, detail="Not authorized to edit this post")
-    
+
     update_data = {}
     if post_update.title is not None:
         update_data['title'] = post_update.title
     if post_update.content is not None:
         update_data['content'] = post_update.content
     update_data['updated_at'] = datetime.utcnow()
-    
+
     db.query(BlogPost).filter(BlogPost.id == post_id).update(update_data)
     db.commit()
     db.refresh(post)
-    
+
     post_response = BlogPostResponse.model_validate(post)
     post_response.author_username = str(current_user.username)
     return post_response
@@ -681,10 +711,14 @@ async def delete_post(
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    
-    # Compare values properly
-    if post.user_id.__eq__(current_user.id) is False:
+
+    # Check authorization
+    if int(post.user_id) != int(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this post")
+
+    # Delete associated likes and comments first
+    db.query(Like).filter(Like.post_id == post_id).delete()
+    db.query(Comment).filter(Comment.post_id == post_id).delete()
     
     db.delete(post)
     db.commit()
@@ -695,18 +729,16 @@ async def get_user_posts(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     posts = db.query(BlogPost).filter(BlogPost.user_id == user_id).order_by(BlogPost.created_at.desc()).all()
-    
+
     results = []
     for post in posts:
         post_response = BlogPostResponse.model_validate(post)
         post_response.author_username = str(user.username)
         results.append(post_response)
-    
-    return results
 
-# ========== COMMENTS ENDPOINTS ==========
+    return results
 
 @app.post("/posts/{post_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
 async def create_comment(
@@ -718,7 +750,7 @@ async def create_comment(
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    
+
     db_comment = Comment(
         post_id=post_id,
         user_id=current_user.id,
@@ -728,11 +760,9 @@ async def create_comment(
     db.add(db_comment)
     db.commit()
     db.refresh(db_comment)
-    
-    # Create mention notifications
+
     create_mention_notifications(comment.content, post_id, db_comment.id, current_user.id, db)
-    
-    # Notify post author about comment (if not self-comment)
+
     if post.user_id != current_user.id:
         notif = Notification(
             user_id=post.user_id,
@@ -743,8 +773,7 @@ async def create_comment(
             message=f"{current_user.username} commented on your post"
         )
         db.add(notif)
-    
-    # If it's a reply, notify parent comment author
+
     parent_user = None
     if comment.parent_comment_id:
         parent = db.query(Comment).filter(Comment.id == comment.parent_comment_id).first()
@@ -760,9 +789,9 @@ async def create_comment(
                 message=f"{current_user.username} replied to your comment"
             )
             db.add(notif)
-    
+
     db.commit()
-    
+
     comment_response = CommentResponse.model_validate(db_comment)
     comment_response.author_username = str(current_user.username)
     comment_response.author_avatar_url = str(current_user.avatar_url) if getattr(current_user, "avatar_url", None) else None
@@ -819,16 +848,14 @@ async def delete_comment(
     comment = db.query(Comment).filter(Comment.id == comment_id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    
-    # Compare values properly
-    if comment.user_id.__eq__(current_user.id) is False:
+
+    # Check authorization
+    if int(comment.user_id) != int(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
-    
+
     db.delete(comment)
     db.commit()
     return {"message": "Comment deleted successfully"}
-
-# ========== MESSAGING ENDPOINTS ==========
 
 @app.post("/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def send_message(
@@ -841,20 +868,19 @@ async def send_message(
     receiver = db.query(User).filter(User.id == receiver_id).first()
     if not receiver:
         raise HTTPException(status_code=404, detail="Receiver not found")
-    
-    # Validate at least message or media exists
+
     if not message and (not media or len(media) == 0):
         raise HTTPException(status_code=400, detail="Message must contain text or media")
-    
+
     media_url = None
     if media and len(media) > 0:
-        # Save the first media file
+
         file = media[0]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{current_user.id}_{file.filename}"
         file_path = UPLOAD_DIR / "messages" / filename
         media_url = save_upload_file(file, file_path)
-    
+
     db_message = Message(
         sender_id=current_user.id,
         receiver_id=receiver_id,
@@ -864,7 +890,7 @@ async def send_message(
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
-    
+
     message_response = MessageResponse.model_validate(db_message)
     message_response.sender_username = str(current_user.username)
     message_response.receiver_username = str(receiver.username)
@@ -876,7 +902,7 @@ async def get_conversations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Get list of users the current user has messaged with
+
     conversations = db.execute(text("""
         SELECT 
             other_user_id,
@@ -908,7 +934,7 @@ async def get_conversations(
         WHERE rn = 1
         ORDER BY last_message_time DESC
     """), {"user_id": current_user.id}).fetchall()
-    
+
     return [{
         "other_user_id": c[0], 
         "username": c[1], 
@@ -929,22 +955,21 @@ async def get_messages_with_user(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == other_user_id)) |
         ((Message.sender_id == other_user_id) & (Message.receiver_id == current_user.id))
     ).order_by(Message.timestamp.asc()).all()
-    
-    # Mark messages as read
+
     db.query(Message).filter(
         Message.sender_id == other_user_id,
         Message.receiver_id == current_user.id,
         Message.read_status == 0
     ).update({Message.read_status: 1})
     db.commit()
-    
+
     results = []
     for message, sender_name, _ in messages:
         message_response = MessageResponse.model_validate(message)
         message_response.sender_username = sender_name
         message_response.read_status = bool(message.read_status)
         results.append(message_response)
-    
+
     return results
 
 @app.delete("/messages/conversation/{other_user_id}")
@@ -959,7 +984,7 @@ async def delete_conversation(
         ((Message.sender_id == other_user_id) & (Message.receiver_id == current_user.id))
     ).delete()
     db.commit()
-    
+
     return {
         "message": "Conversation cleared successfully",
         "deleted_count": deleted_count
@@ -967,7 +992,9 @@ async def delete_conversation(
 
 @app.get("/users/search")
 async def search_users(q: str, db: Session = Depends(get_db)):
-    users = db.query(User).filter(User.username.contains(q)).limit(10).all()
+    if not q or len(q) < 2:
+        return []
+    users = db.query(User).filter(User.username.like(f"%{q}%")).limit(15).all()
     return [{"id": u.id, "username": u.username, "full_name": u.full_name, "avatar_url": getattr(u, 'avatar_url', None)} for u in users]
 
 @app.get("/users/mentionable")
@@ -991,7 +1018,6 @@ async def list_mentionable_users(
         for user in users
     ]
 
-# Message Edit/Delete endpoints
 @app.put("/messages/{message_id}")
 async def update_message(
     message_id: int,
@@ -1005,7 +1031,7 @@ async def update_message(
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.sender_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to edit this message")
-    
+
     msg.message = message_update.message
     db.commit()
     db.refresh(msg)
@@ -1023,12 +1049,11 @@ async def delete_message(
         raise HTTPException(status_code=404, detail="Message not found")
     if msg.sender_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this message")
-    
+
     db.delete(msg)
     db.commit()
     return {"message": "Message deleted successfully"}
 
-# Report endpoints
 @app.post("/reports", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
 async def create_report(
     report: ReportCreate,
@@ -1058,7 +1083,6 @@ async def get_reports(
     reports = db.query(Report).all()
     return reports
 
-# Block endpoints
 @app.post("/users/block/{user_id}")
 async def block_user(
     user_id: int,
@@ -1068,16 +1092,15 @@ async def block_user(
     """Block a user"""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot block yourself")
-    
-    # Check if already blocked
+
     existing = db.query(BlockedUser).filter(
         BlockedUser.blocker_id == current_user.id,
         BlockedUser.blocked_id == user_id
     ).first()
-    
+
     if existing:
         raise HTTPException(status_code=400, detail="User already blocked")
-    
+
     block = BlockedUser(blocker_id=current_user.id, blocked_id=user_id)
     db.add(block)
     db.commit()
@@ -1094,10 +1117,10 @@ async def unblock_user(
         BlockedUser.blocker_id == current_user.id,
         BlockedUser.blocked_id == user_id
     ).first()
-    
+
     if not block:
         raise HTTPException(status_code=404, detail="Block not found")
-    
+
     db.delete(block)
     db.commit()
     return {"message": "User unblocked successfully"}
@@ -1113,7 +1136,6 @@ async def get_blocked_users(
     users = db.query(User).filter(User.id.in_(blocked_ids)).all()
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url} for u in users]
 
-# Like/Unlike endpoints
 @app.post("/posts/{post_id}/like")
 async def like_post(
     post_id: int,
@@ -1124,11 +1146,10 @@ async def like_post(
     existing = db.query(Like).filter(Like.user_id == current_user.id, Like.post_id == post_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Already liked")
-    
+
     like = Like(user_id=current_user.id, post_id=post_id)
     db.add(like)
-    
-    # Create notification
+
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if post and post.user_id != current_user.id:
         notif = Notification(
@@ -1139,7 +1160,7 @@ async def like_post(
             message=f"{current_user.username} liked your post"
         )
         db.add(notif)
-    
+
     db.commit()
     return {"message": "Post liked"}
 
@@ -1153,12 +1174,11 @@ async def unlike_post(
     like = db.query(Like).filter(Like.user_id == current_user.id, Like.post_id == post_id).first()
     if not like:
         raise HTTPException(status_code=404, detail="Like not found")
-    
+
     db.delete(like)
     db.commit()
     return {"message": "Post unliked"}
 
-# Repost/Quote endpoints
 @app.post("/posts/{post_id}/repost")
 async def repost_post(
     post_id: int,
@@ -1170,11 +1190,10 @@ async def repost_post(
     existing = db.query(Repost).filter(Repost.user_id == current_user.id, Repost.post_id == post_id).first()
     if existing and not repost_data.quote_text:
         raise HTTPException(status_code=400, detail="Already reposted")
-    
+
     repost = Repost(user_id=current_user.id, post_id=post_id, quote_text=repost_data.quote_text)
     db.add(repost)
-    
-    # Create notification
+
     post = db.query(BlogPost).filter(BlogPost.id == post_id).first()
     if post and post.user_id != current_user.id:
         notif = Notification(
@@ -1185,7 +1204,7 @@ async def repost_post(
             message=f"{current_user.username} reposted your post"
         )
         db.add(notif)
-    
+
     db.commit()
     return {"message": "Post reposted"}
 
@@ -1199,12 +1218,11 @@ async def unrepost_post(
     repost = db.query(Repost).filter(Repost.user_id == current_user.id, Repost.post_id == post_id).first()
     if not repost:
         raise HTTPException(status_code=404, detail="Repost not found")
-    
+
     db.delete(repost)
     db.commit()
     return {"message": "Repost removed"}
 
-# Bookmark endpoints
 @app.post("/posts/{post_id}/bookmark")
 async def bookmark_post(
     post_id: int,
@@ -1215,7 +1233,7 @@ async def bookmark_post(
     existing = db.query(Bookmark).filter(Bookmark.user_id == current_user.id, Bookmark.post_id == post_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Already bookmarked")
-    
+
     bookmark = Bookmark(user_id=current_user.id, post_id=post_id)
     db.add(bookmark)
     db.commit()
@@ -1231,7 +1249,7 @@ async def unbookmark_post(
     bookmark = db.query(Bookmark).filter(Bookmark.user_id == current_user.id, Bookmark.post_id == post_id).first()
     if not bookmark:
         raise HTTPException(status_code=404, detail="Bookmark not found")
-    
+
     db.delete(bookmark)
     db.commit()
     return {"message": "Bookmark removed"}
@@ -1245,17 +1263,16 @@ async def get_bookmarks(
     bookmarks = db.query(Bookmark).filter(Bookmark.user_id == current_user.id).all()
     post_ids = [b.post_id for b in bookmarks]
     posts = db.query(BlogPost, User).join(User, BlogPost.user_id == User.id).filter(BlogPost.id.in_(post_ids)).all()
-    
+
     results = []
     for post, user in posts:
         post_response = BlogPostResponse.model_validate(post)
         post_response.author_username = user.username
         post_response.author_avatar_url = str(user.avatar_url) if hasattr(user, 'avatar_url') and user.avatar_url else None
         results.append(post_response)
-    
+
     return results
 
-# Follow/Unfollow endpoints
 @app.post("/users/{user_id}/follow")
 async def follow_user(
     user_id: int,
@@ -1265,15 +1282,14 @@ async def follow_user(
     """Follow a user"""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot follow yourself")
-    
+
     existing = db.query(Follow).filter(Follow.follower_id == current_user.id, Follow.following_id == user_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="Already following")
-    
+
     follow = Follow(follower_id=current_user.id, following_id=user_id)
     db.add(follow)
-    
-    # Create notification
+
     notif = Notification(
         user_id=user_id,
         type="follow",
@@ -1281,7 +1297,7 @@ async def follow_user(
         message=f"{current_user.username} followed you"
     )
     db.add(notif)
-    
+
     db.commit()
     return {"message": "User followed"}
 
@@ -1295,7 +1311,7 @@ async def unfollow_user(
     follow = db.query(Follow).filter(Follow.follower_id == current_user.id, Follow.following_id == user_id).first()
     if not follow:
         raise HTTPException(status_code=404, detail="Not following")
-    
+
     db.delete(follow)
     db.commit()
     return {"message": "User unfollowed"}
@@ -1316,7 +1332,6 @@ async def get_following(user_id: int, db: Session = Depends(get_db)):
     users = db.query(User).filter(User.id.in_(following_ids)).all()
     return [{"id": u.id, "username": u.username, "avatar_url": u.avatar_url, "full_name": u.full_name} for u in users]
 
-# Notification endpoints
 @app.get("/notifications", response_model=List[NotificationResponse])
 async def get_notifications(
     current_user: User = Depends(get_current_user),
@@ -1324,7 +1339,7 @@ async def get_notifications(
 ):
     """Get user's notifications"""
     notifs = db.query(Notification).filter(Notification.user_id == current_user.id).order_by(Notification.created_at.desc()).limit(50).all()
-    
+
     results = []
     for notif in notifs:
         from_user = db.query(User).filter(User.id == notif.from_user_id).first()
@@ -1332,7 +1347,7 @@ async def get_notifications(
         notif_response.from_username = from_user.username if from_user else "Unknown"
         notif_response.from_avatar_url = str(from_user.avatar_url) if from_user and hasattr(from_user, 'avatar_url') and from_user.avatar_url else None
         results.append(notif_response)
-    
+
     return results
 
 @app.put("/notifications/{notification_id}/read")
@@ -1345,7 +1360,7 @@ async def mark_notification_read(
     notif = db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == current_user.id).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Notification not found")
-    
+
     notif.read_status = 1
     db.commit()
     return {"message": "Notification marked as read"}
@@ -1360,7 +1375,6 @@ async def mark_all_notifications_read(
     db.commit()
     return {"message": "All notifications marked as read"}
 
-# Mention detection and notification
 def extract_mentions(text: str):
     """Extract @username mentions from text"""
     return re.findall(r'@(\w+)', text)
@@ -1377,7 +1391,7 @@ def create_mention_notifications(text: str, post_id: Optional[int], comment_id: 
                 mentioned_user_id=user.id
             )
             db.add(mention)
-            
+
             notif = Notification(
                 user_id=user.id,
                 type="mention",
@@ -1388,25 +1402,23 @@ def create_mention_notifications(text: str, post_id: Optional[int], comment_id: 
             )
             db.add(notif)
 
-# Trending/Explore endpoint
 @app.get("/trending")
 async def get_trending(db: Session = Depends(get_db)):
     """Get trending posts based on likes and comments"""
     from sqlalchemy import func
-    
-    # Get posts with most engagement in last 24 hours
+
     recent_posts = db.query(BlogPost).filter(
         BlogPost.created_at >= datetime.utcnow() - timedelta(days=1)
     ).all()
-    
+
     trending = []
     for post in recent_posts:
         like_count = db.query(Like).filter(Like.post_id == post.id).count()
         comment_count = db.query(Comment).filter(Comment.post_id == post.id).count()
         repost_count = db.query(Repost).filter(Repost.post_id == post.id).count()
-        
+
         score = (like_count * 1) + (comment_count * 2) + (repost_count * 3)
-        
+
         user = db.query(User).filter(User.id == post.user_id).first()
         post_response = BlogPostResponse.model_validate(post)
         post_response.author_username = user.username if user else None
@@ -1414,10 +1426,9 @@ async def get_trending(db: Session = Depends(get_db)):
         post_response.like_count = like_count
         post_response.comment_count = comment_count
         post_response.repost_count = repost_count
-        
+
         trending.append({"post": post_response, "score": score})
-    
-    # Sort by score
+
     trending.sort(key=lambda x: x["score"], reverse=True)
     return [t["post"] for t in trending[:20]]
 
