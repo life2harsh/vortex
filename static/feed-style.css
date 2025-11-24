@@ -611,3 +611,11 @@ form {
 .btn-secondary:hover {
     background: var(--noir-medium);
 }
+.post-media {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin-top: 1rem;
+    object-fit: cover;
+    display: block;
+}
