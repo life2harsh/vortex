@@ -80,7 +80,7 @@
     </div>
 
     <script>
-        const API_URL = 'http://jha.jpoop.in:8080';
+        const API_URL = 'https://jha.jpoop.in';
 
         const tabBtns = document.querySelectorAll('.tab-btn');
         const indicator = document.querySelector('.tab-indicator');
@@ -343,17 +343,17 @@
 
             setTimeout(() => {
                 logo.classList.add('fade');
-            }, 1850);
+            }, 3100); 
 
             setTimeout(() => {
                 overlay.classList.add('fade-out');
                 setTimeout(() => overlay.remove(), 600);
-            }, 2500);
+            }, 3700);
 
             setTimeout(() => {
                 authContainer.style.opacity = '1';
                 authContainer.style.transition = 'opacity 900ms ease-out';
-            }, 2600);
+            }, 3800);
         })();
     </script>
 </body>
