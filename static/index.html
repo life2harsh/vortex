@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vortex - Modern Social Platform</title>
+    <title>Vortex</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -37,8 +37,8 @@
 
             <form id="login-form" class="auth-form active">
                 <div class="input-group">
-                    <label for="login-username">Username</label>
-                    <input type="text" id="login-username" placeholder="Enter your username" required>
+                    <label for="login-username">Email</label>
+                    <input type="text" id="login-username" placeholder="Enter your email ID" required>
                 </div>
                 <div class="input-group">
                     <label for="login-password">Password</label>
@@ -58,8 +58,12 @@
                     <input type="text" id="signup-username" placeholder="Choose a username" required>
                 </div>
                 <div class="input-group">
+                    <label for="signup-email">Email</label>
+                    <input type="email" id="signup-email" placeholder="Enter your email" required>
+                </div>
+                <div class="input-group">
                     <label for="signup-fullname">Full Name</label>
-                    <input type="text" id="signup-fullname" placeholder="Enter your full name" required>
+                    <input type="text" id="signup-fullname" placeholder="Enter your full name">
                 </div>
                 <div class="input-group">
                     <label for="signup-password">Password</label>
@@ -72,15 +76,11 @@
                     </svg>
                 </button>
             </form>
-
-            <div class="auth-footer">
-                <p>Built with ❤️ for modern connections</p>
-            </div>
         </div>
     </div>
 
     <script>
-        const API_URL = 'http://127.0.0.1:8000';
+        const API_URL = 'http://jha.jpoop.in:8080';
 
         const tabBtns = document.querySelectorAll('.tab-btn');
         const indicator = document.querySelector('.tab-indicator');
@@ -126,7 +126,7 @@
 
                 document.querySelector('.auth-card').style.animation = 'slideOut 0.5s ease-in-out';
                 setTimeout(() => {
-                    window.location.href = 'noir-feed.html';
+                      window.location.href = 'feed.html';
                 }, 500);
             } catch (error) {
                 showNotification(error.message, 'error');
@@ -136,7 +136,7 @@
         document.getElementById('signup-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('signup-username').value;
-            const fullName = document.getElementById('signup-fullname').value;
+            const email = document.getElementById('signup-email').value;
             const password = document.getElementById('signup-password').value;
 
             try {
@@ -145,7 +145,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         username: username,
-                        full_name: fullName,
+                        email: email,
                         password: password
                     })
                 });
@@ -159,7 +159,7 @@
 
                 setTimeout(() => {
                     tabBtns[0].click();
-                    document.getElementById('login-username').value = username;
+                    document.getElementById('login-username').value = email;
                 }, 1500);
             } catch (error) {
                 showNotification(error.message, 'error');
@@ -184,7 +184,7 @@
         }
 
         if (localStorage.getItem('accessToken')) {
-            window.location.href = 'noir-feed.html';
+              window.location.href = 'feed.html';
         }
 
         (function() {

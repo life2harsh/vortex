@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile | Vortex</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="noir-feed-style.css">
+    <link rel="stylesheet" href="feed-style.css">
     <style>
         .profile-header {
             background: var(--noir-dark);
@@ -59,6 +59,16 @@
             font-size: 0.875rem;
         }
 
+        .profile-meta {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--noir-muted);
+        }
+
+        .profile-meta span {
+            margin-right: 1rem;
+        }
+
         .posts-section {
             margin-top: 2rem;
         }
@@ -95,31 +105,33 @@
         </div>
 
         <nav class="nav-menu">
-            <a href="noir-feed.html" class="nav-item">
+            <a href="feed.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 </svg>
                 <span>Home</span>
             </a>
-            <a href="noir-profile.html" class="nav-item">
+            <a href="profile.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <span>Profile</span>
             </a>
-            <a href="noir-chat.html" class="nav-item">
+            <a href="chat.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
                 <span>Messages</span>
+                <span class="notification-badge" id="message-badge" style="display: none;">0</span>
             </a>
-            <a href="noir-notifications.html" class="nav-item">
+            <a href="notifications.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
                 <span>Alerts</span>
+                <span class="notification-badge" id="notif-badge" style="display: none;">0</span>
             </a>
         </nav>
 
@@ -143,8 +155,15 @@
             <div class="profile-info">
                 <h1 id="profile-username">Username</h1>
                 <p id="profile-email" class="profile-email"></p>
+                <div class="profile-meta">
+                    <span id="followers-count">0 followers</span>
+                    <span id="following-count">0 following</span>
+                </div>
             </div>
-            <button class="btn-primary" id="message-btn">Message</button>
+            <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:flex-end;">
+                <button class="btn-primary" id="follow-btn">Follow</button>
+                <button class="btn-primary" id="message-btn" style="background:transparent;color:var(--noir-text);border:1px solid var(--border-subtle);">Message</button>
+            </div>
         </div>
 
         <div class="posts-section">
@@ -154,30 +173,44 @@
     </main>
 
     <script>
-        const API_URL = 'http://127.0.0.1:8000';
+        const API_URL = 'http://jha.jpoop.in:8080';
         const token = localStorage.getItem('accessToken');
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
+        let currentUser = null;
+        let isFollowing = false;
 
         if (!token) window.location.href = 'index.html';
-        if (!userId) window.location.href = 'noir-feed.html';
+        if (!userId) window.location.href = 'feed.html';
+
+        async function loadCurrentUser() {
+            const resp = await fetch(`${API_URL}/users/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!resp.ok) throw new Error('Failed to load current user');
+            currentUser = await resp.json();
+        }
 
         async function loadUserProfile() {
             try {
-                const response = await fetch(`${API_URL}/users/search?q=`, {
+                if (!currentUser) {
+                    await loadCurrentUser();
+                }
+
+                const response = await fetch(`${API_URL}/users/${userId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const users = await response.json();
-                const user = users.find(u => u.id == userId);
                 
-                if (!user) {
-                    window.location.href = 'noir-feed.html';
+                if (!response.ok) {
+                    window.location.href = 'feed.html';
                     return;
                 }
 
+                const user = await response.json();
+
                 document.getElementById('profile-username').textContent = user.username;
-                document.getElementById('profile-email').textContent = user.email || '';
-                
+                document.getElementById('profile-email').textContent = user.full_name || '';
+
                 if (user.avatar_url) {
                     document.getElementById('profile-avatar').src = `${API_URL}${user.avatar_url}`;
                     document.getElementById('profile-avatar').style.display = 'block';
@@ -185,10 +218,55 @@
                 } else {
                     document.getElementById('profile-initial').textContent = user.username.charAt(0).toUpperCase();
                 }
-                
-                await loadPosts();
+
+                await Promise.all([
+                    loadFollowStats(),
+                    loadPosts()
+                ]);
             } catch (error) {
                 console.error('Error:', error);
+                window.location.href = 'feed.html';
+            }
+        }
+
+        async function loadFollowStats() {
+            try {
+                const [followersResp, followingResp] = await Promise.all([
+                    fetch(`${API_URL}/users/${userId}/followers`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${API_URL}/users/${userId}/following`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
+
+                const followers = followersResp.ok ? await followersResp.json() : [];
+                const following = followingResp.ok ? await followingResp.json() : [];
+
+                document.getElementById('followers-count').textContent = `${followers.length} follower${followers.length === 1 ? '' : 's'}`;
+                document.getElementById('following-count').textContent = `${following.length} following`;
+
+                if (currentUser) {
+                    isFollowing = followers.some(f => f.id === currentUser.id);
+                    updateFollowButton();
+                }
+            } catch (e) {
+                console.error('Error loading follow stats:', e);
+            }
+        }
+
+        function updateFollowButton() {
+            const btn = document.getElementById('follow-btn');
+            if (parseInt(userId, 10) === currentUser.id) {
+                btn.style.display = 'none';
+                return;
+            }
+            if (isFollowing) {
+                btn.textContent = 'Following';
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--noir-text)';
+                btn.style.border = '1px solid var(--border-soft)';
+            } else {
+                btn.textContent = 'Follow';
+                btn.style.background = 'var(--noir-white)';
+                btn.style.color = 'var(--noir-black)';
+                btn.style.border = 'none';
             }
         }
 
@@ -225,7 +303,23 @@
         }
 
         document.getElementById('message-btn').addEventListener('click', () => {
-            window.location.href = `noir-chat.html?user=${userId}`;
+            window.location.href = `chat.html?user=${userId}`;
+        });
+
+        document.getElementById('follow-btn').addEventListener('click', async () => {
+            try {
+                const method = isFollowing ? 'DELETE' : 'POST';
+                const resp = await fetch(`${API_URL}/users/${userId}/follow`, {
+                    method,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!resp.ok) throw new Error('Failed to update follow');
+                isFollowing = !isFollowing;
+                updateFollowButton();
+                await loadFollowStats();
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         });
 
         function isVideo(url) {
@@ -233,7 +327,9 @@
         }
 
         function formatDate(dateString) {
-            const date = new Date(dateString);
+            // Backend sends UTC timestamps without 'Z', so we need to add it
+            const utcString = dateString.includes('Z') ? dateString : dateString + 'Z';
+            const date = new Date(utcString);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
@@ -247,6 +343,47 @@
             localStorage.removeItem('accessToken');
             window.location.href = 'index.html';
         });
+
+        // Notification and message badge polling
+        async function updateBadges() {
+            try {
+                const notifResponse = await fetch(`${API_URL}/notifications`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const notifications = await notifResponse.json();
+                const unreadCount = notifications.filter(n => !n.read_status).length;
+                const notifBadge = document.getElementById('notif-badge');
+                if (unreadCount > 0) {
+                    notifBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    notifBadge.style.display = 'block';
+                } else {
+                    notifBadge.style.display = 'none';
+                }
+
+                const convResponse = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const conversations = await convResponse.json();
+                const unreadInboxes = new Set();
+                conversations.forEach(conv => {
+                    if (conv.unread_count && conv.unread_count > 0) {
+                        unreadInboxes.add(conv.user_id);
+                    }
+                });
+                const messageBadge = document.getElementById('message-badge');
+                if (unreadInboxes.size > 0) {
+                    messageBadge.textContent = unreadInboxes.size > 99 ? '99+' : unreadInboxes.size;
+                    messageBadge.style.display = 'block';
+                } else {
+                    messageBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching badges:', error);
+            }
+        }
+
+        updateBadges();
+        setInterval(updateBadges, 15000);
 
         loadUserProfile();
     </script>

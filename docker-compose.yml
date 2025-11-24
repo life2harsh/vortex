@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: mysql:8.0
-    # Use native password plugin for compatibility and optimization flags
+
     command: --default-authentication-plugin=mysql_native_password --max_connections=1000 --innodb_buffer_pool_size=1G --innodb_log_file_size=256M --innodb_flush_log_at_trx_commit=2 --innodb_flush_method=O_DIRECT --innodb_thread_concurrency=2 --innodb_read_io_threads=2 --innodb_write_io_threads=2 --table_open_cache=2000
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -22,7 +22,7 @@ services:
     ports:
       - "8080:8000"
     environment:
-      # Connect to the 'db' service defined above
+
       DATABASE_URL: mysql+pymysql://root:root@db:3306/vortex_db
       SECRET_KEY: docker_test_secret
     depends_on:

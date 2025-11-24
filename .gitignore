@@ -52,8 +52,36 @@ backend/uploads/
 old/
 backup/
 *.bak
+old2/
 
-# Documentation (optional - remove if you want to include them)
+# Documentation / local notes (optional - ignored by default)
 FIXES_SUMMARY.md
 MEDIA_UPLOAD_README.md
 TWITTER_FEATURES.md
+ARGON2_OPTIMIZATION.md
+
+# Locust load-test reports
+locust_report*.html
+
+# Locust load-test scripts
+locustfile*.py
+
+# Local helper scripts
+run_server.ps1
+move_noir_files.ps1
+
+# VS Code temp runner file
+backend/tempCodeRunnerFile.py
+
+# Local-only media or backups (if any extra copies are created)
+private_uploads/
+__pycache__/
+
+# Archived noir-era static files
+static/legacy-noir/
+
+# Deployment artifacts
+deploy.tar.gz
+
+# Local README (not needed on remote)
+README.md

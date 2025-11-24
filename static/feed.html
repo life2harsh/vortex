@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Feed | Vortex</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="noir-feed-style.css">
+    <link rel="stylesheet" href="feed-style.css">
 </head>
 <body>
-    <!-- Sidebar -->
+    
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="logo-text">VORTEX</div>
@@ -16,31 +16,33 @@
         </div>
 
         <nav class="nav-menu">
-            <a href="feed.html" class="nav-item active">
+            <a href="#" class="nav-item active" onclick="return false;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 </svg>
                 <span>Home</span>
             </a>
-            <a href="noir-profile.html" class="nav-item">
+            <a href="profile.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <span>Profile</span>
             </a>
-            <a href="noir-chat.html" class="nav-item">
+            <a href="chat.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
                 <span>Messages</span>
+                <span class="notification-badge" id="message-badge" style="display: none;">0</span>
             </a>
-            <a href="noir-notifications.html" class="nav-item">
+            <a href="notifications.html" class="nav-item">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                     <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
                 <span>Alerts</span>
+                <span class="notification-badge" id="notif-badge" style="display: none;">0</span>
             </a>
         </nav>
 
@@ -64,7 +66,7 @@
         </div>
     </aside>
 
-    <!-- Main Content -->
+    
     <main class="main-content">
         <div class="top-bar">
             <div class="search-container">
@@ -74,7 +76,13 @@
                 </svg>
                 <input type="text" id="search-input" placeholder="Search posts...">
             </div>
-            <button class="btn-create" id="create-post-btn">
+            <button class="btn-create" id="bookmarks-btn" type="button" style="background: var(--noir-dark); color: var(--noir-text); border: 1px solid var(--border-subtle);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16l-7-4-7 4V4z"/>
+                </svg>
+                <span>Bookmarks</span>
+            </button>
+            <button class="btn-create" id="create-post-btn" type="button">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <line x1="12" y1="5" x2="12" y2="19"/>
                     <line x1="5" y1="12" x2="19" y2="12"/>
@@ -91,7 +99,7 @@
         </div>
     </main>
 
-    <!-- Create Post Modal -->
+    
     <div class="modal" id="create-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -120,7 +128,7 @@
     </div>
 
     <script>
-        const API_URL = 'http://127.0.0.1:8000';
+        const API_URL = 'http://jha.jpoop.in:8080';
         const token = localStorage.getItem('accessToken');
         let currentUser = null;
 
@@ -134,16 +142,16 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 currentUser = await response.json();
-                
+
                 const initial = currentUser.username.charAt(0).toUpperCase();
                 const sidebarAvatar = document.getElementById('sidebar-avatar');
-                
+
                 if (currentUser.avatar_url) {
                     sidebarAvatar.innerHTML = `<img src="${API_URL}${currentUser.avatar_url}" alt="Avatar">`;
                 } else {
                     document.getElementById('sidebar-initial').textContent = initial;
                 }
-                
+
                 document.getElementById('sidebar-username').textContent = currentUser.username;
                 loadPosts();
             } catch (error) {
@@ -153,10 +161,20 @@
             }
         }
 
-        async function loadPosts() {
+        async function loadPosts(searchQuery = '') {
             try {
-                const response = await fetch(`${API_URL}/posts`);
+                const response = await fetch(`${API_URL}/posts?search=${encodeURIComponent(searchQuery)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load posts: ${response.status}`);
+                }
+
                 const posts = await response.json();
+                if (!Array.isArray(posts)) {
+                    throw new Error('Unexpected posts payload');
+                }
                 displayPosts(posts);
             } catch (error) {
                 console.error('Error loading posts:', error);
@@ -165,7 +183,7 @@
 
         function displayPosts(posts) {
             const container = document.getElementById('feed-container');
-            
+
             if (posts.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
@@ -180,7 +198,7 @@
             }
 
             container.innerHTML = posts.map(post => `
-                <article class="post-card" onclick="window.location.href='post.html?id=${post.id}'">
+                <article class="post-card" onclick="window.location.href='nopost.html?id=${post.id}'">
                     <div class="post-header">
                         <div class="post-author">
                             <div class="avatar small">
@@ -189,7 +207,7 @@
                                     : `<span>${post.author_username.charAt(0).toUpperCase()}</span>`}
                             </div>
                             <div class="author-info">
-                                <a href="noir-public-profile.html?id=${post.author_id}" class="author-name" onclick="event.stopPropagation()">${escapeHtml(post.author_username)}</a>
+                                <a href="public-profile.html?id=${post.user_id}" class="author-name" onclick="event.stopPropagation()">${escapeHtml(post.author_username)}</a>
                                 <span class="post-date">${formatDate(post.created_at)}</span>
                             </div>
                         </div>
@@ -198,10 +216,78 @@
                         <h3 class="post-title">${escapeHtml(post.title)}</h3>
                         <p class="post-preview">${escapeHtml(post.content.substring(0, 200))}${post.content.length > 200 ? '...' : ''}</p>
                         ${post.media_url ? `<img src="${API_URL}${escapeHtml(post.media_url)}" style="width: 100%; border-radius: 8px; margin-top: 1rem; max-height: 300px; object-fit: cover;">` : ''}
+                        <div class="post-actions" onclick="event.stopPropagation()">
+                            <button class="post-action-btn" onclick="toggleLike(event, ${post.id})">
+                                <span class="post-action-icon">♥</span>
+                                <span class="post-action-count">${post.like_count ?? 0}</span>
+                            </button>
+                            <button class="post-action-btn" onclick="window.location.href='post.html?id=${post.id}'; event.stopPropagation(); return false;">
+                                <span class="post-action-icon">✉</span>
+                                <span class="post-action-count">${post.comment_count ?? 0}</span>
+                            </button>
+                            <button class="post-action-btn ${post.is_bookmarked ? 'bookmarked' : ''}" onclick="toggleBookmark(event, ${post.id})">
+                                <span class="post-action-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7">
+                                        <path d="M6 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16l-7-4-7 4V4z"/>
+                                    </svg>
+                                </span>
+                                <span class="post-action-count"></span>
+                            </button>
+                        </div>
                     </div>
                 </article>
             `).join('');
         }
+
+        async function toggleLike(event, postId) {
+            event.preventDefault();
+            event.stopPropagation();
+            try {
+                const method = 'POST';
+                const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+                    method,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) {
+                    // If already liked, try unlike
+                    const unresp = await fetch(`${API_URL}/posts/${postId}/like`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!unresp.ok) throw new Error('Failed to like/unlike');
+                }
+                loadPosts(document.getElementById('search-input').value);
+            } catch (error) {
+                console.error('Error toggling like:', error);
+            }
+        }
+
+        // Bookmark toggle is still available if you want to reuse it elsewhere
+        async function toggleBookmark(event, postId) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const btn = event.currentTarget;
+            const isBookmarked = btn.classList.contains('bookmarked');
+
+            try {
+                const method = isBookmarked ? 'DELETE' : 'POST';
+                const response = await fetch(`${API_URL}/posts/${postId}/bookmark`, {
+                    method,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to bookmark/unbookmark');
+
+                btn.classList.toggle('bookmarked', !isBookmarked);
+            } catch (error) {
+                console.error('Error toggling bookmark:', error);
+                alert('Could not update bookmark');
+            }
+        }
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            loadPosts(e.target.value);
+        });
 
         document.getElementById('create-post-btn').addEventListener('click', () => {
             document.getElementById('create-modal').classList.add('active');
@@ -213,6 +299,41 @@
 
         document.getElementById('cancel-btn').addEventListener('click', () => {
             document.getElementById('create-modal').classList.remove('active');
+        });
+
+        let showingBookmarks = false;
+
+        // Bookmarks view toggle
+        document.getElementById('bookmarks-btn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const btn = document.getElementById('bookmarks-btn');
+            if (showingBookmarks) {
+                // Go back to normal feed
+                showingBookmarks = false;
+                btn.style.background = 'var(--noir-dark)';
+                btn.style.color = 'var(--noir-text)';
+                btn.style.borderColor = 'var(--border-subtle)';
+                loadPosts(document.getElementById('search-input').value);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/bookmarks`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Failed to load bookmarks');
+                const posts = await response.json();
+                displayPosts(posts);
+                showingBookmarks = true;
+                btn.style.background = 'var(--noir-white)';
+                btn.style.color = 'var(--noir-black)';
+                btn.style.borderColor = 'var(--noir-white)';
+            } catch (error) {
+                console.error('Error loading bookmarks:', error);
+                alert('Could not load bookmarks');
+            }
         });
 
         document.getElementById('create-post-form').addEventListener('submit', async (e) => {
@@ -248,7 +369,9 @@
         });
 
         function formatDate(dateString) {
-            const date = new Date(dateString);
+            // Backend sends UTC timestamps without 'Z', so we need to add it
+            const utcString = dateString.includes('Z') ? dateString : dateString + 'Z';
+            const date = new Date(utcString);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
@@ -262,6 +385,49 @@
             localStorage.removeItem('accessToken');
             window.location.href = 'index.html';
         });
+
+        // Notification and message badge polling
+        async function updateBadges() {
+            try {
+                // Update notification badge
+                const notifResponse = await fetch(`${API_URL}/notifications`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const notifications = await notifResponse.json();
+                const unreadCount = notifications.filter(n => !n.read_status).length;
+                const notifBadge = document.getElementById('notif-badge');
+                if (unreadCount > 0) {
+                    notifBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    notifBadge.style.display = 'block';
+                } else {
+                    notifBadge.style.display = 'none';
+                }
+
+                // Update message badge (unique inboxes with unread messages)
+                const convResponse = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const conversations = await convResponse.json();
+                const unreadInboxes = new Set();
+                conversations.forEach(conv => {
+                    if (conv.unread_count && conv.unread_count > 0) {
+                        unreadInboxes.add(conv.user_id);
+                    }
+                });
+                const messageBadge = document.getElementById('message-badge');
+                if (unreadInboxes.size > 0) {
+                    messageBadge.textContent = unreadInboxes.size > 99 ? '99+' : unreadInboxes.size;
+                    messageBadge.style.display = 'block';
+                } else {
+                    messageBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching badges:', error);
+            }
+        }
+
+        updateBadges();
+        setInterval(updateBadges, 15000); // Poll every 15 seconds
 
         loadUserInfo();
     </script>

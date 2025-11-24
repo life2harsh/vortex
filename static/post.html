@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post | Vortex</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="feed-style.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-text">VORTEX</div>
+            <div class="logo-subtitle">Social Network</div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="feed.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                </svg>
+                <span>Home</span>
+            </a>
+            <a href="profile.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                <span>Profile</span>
+            </a>
+            <a href="chat.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <span>Messages</span>
+                <span class="notification-badge" id="message-badge" style="display: none;">0</span>
+            </a>
+            <a href="notifications.html" class="nav-item">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                <span>Alerts</span>
+                <span class="notification-badge" id="notif-badge" style="display: none;">0</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar" id="sidebar-avatar">
+                    <span id="sidebar-initial">U</span>
+                </div>
+                <div class="user-info">
+                    <p class="username" id="sidebar-username">User</p>
+                    <p class="status">Active</p>
+                </div>
+            </div>
+            <button class="btn-logout" id="logout-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="content-wrapper" style="max-width: 800px; margin: 0 auto;">
+            <div class="page-header" style="margin-bottom: 2rem;">
+                <button onclick="history.back()" style="padding: 0.5rem 1rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 6px; color: var(--noir-text); cursor: pointer; font-size: 0.9375rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back
+                </button>
+            </div>
+
+            <article id="post-detail" class="post-card" style="margin-bottom: 2rem;">
+                <div class="loading" style="padding: 4rem 2rem; text-align: center;">
+                    <div class="spinner"></div>
+                    <p>Loading post...</p>
+                </div>
+            </article>
+
+            <div class="comments-section">
+                <h3 style="font-size: 1.25rem; font-weight: 600; color: var(--noir-white); margin-bottom: 1.5rem;">Comments</h3>
+
+                <form id="comment-form" style="margin-bottom: 2rem; padding: 1.5rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 12px;">
+                    <textarea id="comment-input" placeholder="Write a comment..." style="width: 100%; min-height: 100px; padding: 0.875rem; background: var(--noir-darker); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--noir-text); font-family: inherit; font-size: 0.9375rem; resize: vertical; margin-bottom: 1rem;"></textarea>
+                    <button type="submit" style="padding: 0.625rem 1.5rem; background: var(--noir-white); border: none; border-radius: 6px; color: var(--noir-black); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">Post Comment</button>
+                </form>
+
+                <div id="comments-list">
+                    <div class="loading" style="padding: 2rem; text-align: center;">
+                        <p>Loading comments...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="modal" id="confirm-modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 id="confirm-title">Confirm</h2>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-message" style="color: var(--noir-text); margin-bottom: 1.5rem;"></p>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                    <button id="confirm-cancel" style="padding: 0.625rem 1.5rem; background: var(--noir-medium); border: 1px solid var(--border-soft); border-radius: 6px; color: var(--noir-text); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">Cancel</button>
+                    <button id="confirm-ok" style="padding: 0.625rem 1.5rem; background: var(--noir-white); border: 1px solid var(--noir-white); border-radius: 6px; color: var(--noir-black); cursor: pointer; font-size: 0.9375rem; font-weight: 500;">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://jha.jpoop.in:8080';
+        const token = localStorage.getItem('accessToken');
+        let currentUser = null;
+        let currentPost = null;
+
+        if (!token) {
+            window.location.href = 'index.html';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('id');
+
+        if (!postId) {
+            window.location.href = 'feed.html';
+        }
+
+        async function loadUserInfo() {
+            try {
+                const response = await fetch(`${API_URL}/users/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                currentUser = await response.json();
+
+                const initial = currentUser.username.charAt(0).toUpperCase();
+                const sidebarAvatar = document.getElementById('sidebar-avatar');
+
+                if (currentUser.avatar_url) {
+                    sidebarAvatar.innerHTML = `<img src="${API_URL}${currentUser.avatar_url}" alt="${currentUser.username}">`;
+                } else {
+                    sidebarAvatar.innerHTML = `<span id="sidebar-initial">${initial}</span>`;
+                }
+
+                document.getElementById('sidebar-username').textContent = currentUser.username;
+            } catch (error) {
+                console.error('Error loading user:', error);
+                localStorage.removeItem('accessToken');
+                window.location.href = 'index.html';
+            }
+        }
+
+        async function loadPost() {
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Post not found');
+
+                currentPost = await response.json();
+                displayPost(currentPost);
+                loadComments();
+            } catch (error) {
+                document.getElementById('post-detail').innerHTML = `
+                    <div style="padding: 2rem; text-align: center;">
+                        <p style="color: var(--noir-muted);">Post not found</p>
+                        <button onclick="window.location.href='feed.html'" style="margin-top: 1rem; padding: 0.625rem 1.5rem; background: var(--noir-white); border: none; border-radius: 6px; color: var(--noir-black); cursor: pointer;">Go to Feed</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayPost(post) {
+            const isOwner = currentUser && parseInt(post.user_id) === parseInt(currentUser.id);
+            console.log('Post author:', post.user_id, 'Current user:', currentUser?.id, 'Is owner:', isOwner);
+            const container = document.getElementById('post-detail');
+
+            container.innerHTML = `
+                <div class="post-header" style="display: flex; align-items: center; justify-content: space-between;">
+                    <div class="post-author">
+                        <div class="avatar small">
+                            ${post.author_avatar_url 
+                                ? `<img src="${API_URL}${post.author_avatar_url}" alt="Avatar">` 
+                                : `<span>${post.author_username.charAt(0).toUpperCase()}</span>`}
+                        </div>
+                        <div class="author-info">
+                            <a href="public-profile.html?id=${post.user_id}" class="author-name">${escapeHtml(post.author_username)}</a>
+                            <span class="post-date">${formatDate(post.created_at)}</span>
+                        </div>
+                    </div>
+                    ${isOwner ? `
+                        <button class="btn-delete-post" onclick="deletePost()" title="Delete post" style="padding: 0.625rem 1rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 6px; color: #ff6b6b; cursor: pointer; font-size: 0.875rem; font-weight: 500; transition: all 0.2s;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 0.25rem;">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                            Delete
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="post-body">
+                    <h2 style="font-size: 1.5rem; font-weight: 600; color: var(--noir-white); margin-bottom: 1rem;">${escapeHtml(post.title)}</h2>
+                    <p style="font-size: 0.9375rem; line-height: 1.6; color: var(--noir-text); margin-bottom: 1.5rem; white-space: pre-wrap;">${escapeHtml(post.content)}</p>
+                    ${post.media_url ? `
+                        ${isVideo(post.media_url) 
+                            ? `<video controls style="width: 100%; border-radius: 12px; margin-bottom: 1.5rem;"><source src="${API_URL}${post.media_url}" type="video/mp4"></video>`
+                            : `<img src="${API_URL}${post.media_url}" style="width: 100%; border-radius: 12px; margin-bottom: 1.5rem;">`
+                        }
+                    ` : ''}
+                    <div class="post-actions">
+                        <button class="action-btn ${post.is_liked ? 'active' : ''}" onclick="toggleLike(${post.id})" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--noir-muted); cursor: pointer; transition: all 0.2s;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="${post.is_liked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                            </svg>
+                            <span id="like-count-${post.id}" style="font-weight: 500; color: var(--noir-text);">${post.like_count || 0}</span>
+                        </button>
+                        <button class="action-btn" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--noir-muted); cursor: pointer; transition: all 0.2s;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span id="comment-count" style="font-weight: 500; color: var(--noir-text);">${post.comment_count || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadComments() {
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}/comments`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const comments = await response.json();
+                displayComments(comments);
+            } catch (error) {
+                document.getElementById('comments-list').innerHTML = '<p style="color: var(--noir-muted); text-align: center;">Failed to load comments</p>';
+            }
+        }
+
+        function displayComments(comments) {
+            const container = document.getElementById('comments-list');
+
+            if (comments.length === 0) {
+                container.innerHTML = '<p style="color: var(--noir-muted); text-align: center; padding: 2rem;">No comments yet</p>';
+                return;
+            }
+
+            container.innerHTML = comments.map(comment => {
+                const isOwner = currentUser && comment.user_id === currentUser.id;
+                return `
+                    <div class="comment-item" style="padding: 1.5rem; background: var(--noir-dark); border: 1px solid var(--border-subtle); border-radius: 12px; margin-bottom: 1rem;">
+                        <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                            <div class="avatar small">
+                                ${comment.author_avatar_url 
+                                    ? `<img src="${API_URL}${comment.author_avatar_url}" alt="Avatar">` 
+                                    : `<span>${comment.author_username.charAt(0).toUpperCase()}</span>`}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <div>
+                                        <a href="public-profile.html?id=${comment.user_id}" style="font-weight: 500; color: var(--noir-white); text-decoration: none;">${escapeHtml(comment.author_username)}</a>
+                                        <span style="color: var(--noir-muted); font-size: 0.875rem; margin-left: 0.5rem;">${formatDate(comment.created_at)}</span>
+                                    </div>
+                                    ${isOwner ? `
+                                        <button onclick="deleteComment(${comment.id})" style="padding: 0.25rem 0.5rem; background: transparent; border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--noir-muted); cursor: pointer; font-size: 0.875rem;">Delete</button>
+                                    ` : ''}
+                                </div>
+                                <p style="color: var(--noir-text); line-height: 1.5; white-space: pre-wrap;">${escapeHtml(comment.content)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('comment-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = document.getElementById('comment-input').value.trim();
+
+            if (!content) return;
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ content })
+                });
+
+                if (!response.ok) throw new Error('Failed to post comment');
+
+                document.getElementById('comment-input').value = '';
+
+                currentPost.comment_count = (currentPost.comment_count || 0) + 1;
+                const commentCountEl = document.getElementById('comment-count');
+                if (commentCountEl) {
+                    commentCountEl.textContent = currentPost.comment_count;
+                }
+
+                loadComments(); 
+            } catch (error) {
+                console.error('Error posting comment:', error);
+            }
+        });
+
+        async function toggleLike(postId) {
+            try {
+                const isLiked = currentPost.is_liked;
+                const method = isLiked ? 'DELETE' : 'POST';
+
+                const response = await fetch(`${API_URL}/posts/${postId}/like`, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to toggle like');
+
+                currentPost.is_liked = !isLiked;
+                currentPost.like_count = isLiked ? currentPost.like_count - 1 : currentPost.like_count + 1;
+
+                const likeCountEl = document.getElementById(`like-count-${postId}`);
+                if (likeCountEl) {
+                    likeCountEl.textContent = currentPost.like_count;
+                }
+
+                const btn = likeCountEl?.closest('.action-btn');
+                if (btn) {
+                    const svg = btn.querySelector('svg');
+                    if (currentPost.is_liked) {
+                        btn.classList.add('active');
+                        if (svg) svg.setAttribute('fill', 'currentColor');
+                    } else {
+                        btn.classList.remove('active');
+                        if (svg) svg.setAttribute('fill', 'none');
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling like:', error);
+            }
+        }
+
+        function showConfirm(title, message, confirmText = 'OK', isDestructive = false) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                const confirmBtn = document.getElementById('confirm-ok');
+
+                document.getElementById('confirm-title').textContent = title;
+                document.getElementById('confirm-message').textContent = message;
+                confirmBtn.textContent = confirmText;
+
+                if (isDestructive) {
+                    confirmBtn.style.background = '#ef4444';
+                    confirmBtn.style.color = '#ffffff';
+                    confirmBtn.style.border = '1px solid #ef4444';
+                } else {
+                    confirmBtn.style.background = 'var(--noir-white)';
+                    confirmBtn.style.color = 'var(--noir-black)';
+                    confirmBtn.style.border = '1px solid var(--noir-white)';
+                }
+
+                modal.classList.add('active');
+
+                const handleOk = () => {
+                    cleanup();
+                    resolve(true);
+                };
+                const handleCancel = () => {
+                    cleanup();
+                    resolve(false);
+                };
+                const cleanup = () => {
+                    modal.classList.remove('active');
+                    confirmBtn.removeEventListener('click', handleOk);
+                    document.getElementById('confirm-cancel').removeEventListener('click', handleCancel);
+                };
+
+                confirmBtn.addEventListener('click', handleOk);
+                document.getElementById('confirm-cancel').addEventListener('click', handleCancel);
+            });
+        }
+
+        async function deletePost() {
+            const confirmed = await showConfirm('Delete Post', 'Are you sure you want to delete this post? This cannot be undone.', 'Delete', true);
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`${API_URL}/posts/${postId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete post');
+
+                window.location.href = 'feed.html';
+            } catch (error) {
+                console.error('Error deleting post:', error);
+            }
+        }
+
+        async function deleteComment(commentId) {
+            const confirmed = await showConfirm('Delete Comment', 'Delete this comment?', 'Delete', true);
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`${API_URL}/comments/${commentId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete comment');
+
+                currentPost.comment_count = Math.max(0, (currentPost.comment_count || 0) - 1);
+                const commentCountEl = document.getElementById('comment-count');
+                if (commentCountEl) {
+                    commentCountEl.textContent = currentPost.comment_count;
+                }
+
+                loadComments(); 
+            } catch (error) {
+                console.error('Error deleting comment:', error);
+            }
+        }
+
+        function isVideo(url) {
+            return /\.(mp4|webm|ogg)$/i.test(url);
+        }
+
+        function formatDate(dateString) {
+
+            const utcString = dateString.includes('Z') ? dateString : dateString + 'Z';
+            const date = new Date(utcString);
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (seconds < 60) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem('accessToken');
+            window.location.href = 'index.html';
+        });
+
+        async function updateBadges() {
+            try {
+                const notifResponse = await fetch(`${API_URL}/notifications`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const notifications = await notifResponse.json();
+                const unreadCount = notifications.filter(n => !n.read_status).length;
+                const notifBadge = document.getElementById('notif-badge');
+                if (unreadCount > 0) {
+                    notifBadge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                    notifBadge.style.display = 'block';
+                } else {
+                    notifBadge.style.display = 'none';
+                }
+
+                const convResponse = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const conversations = await convResponse.json();
+                const unreadInboxes = new Set();
+                conversations.forEach(conv => {
+                    if (conv.unread_count && conv.unread_count > 0) {
+                        unreadInboxes.add(conv.user_id);
+                    }
+                });
+                const messageBadge = document.getElementById('message-badge');
+                if (unreadInboxes.size > 0) {
+                    messageBadge.textContent = unreadInboxes.size > 99 ? '99+' : unreadInboxes.size;
+                    messageBadge.style.display = 'block';
+                } else {
+                    messageBadge.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error fetching badges:', error);
+            }
+        }
+
+        updateBadges();
+        setInterval(updateBadges, 15000);
+
+        loadUserInfo();
+        loadPost();
+    </script>
+</body>
+</html>
