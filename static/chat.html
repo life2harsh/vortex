@@ -400,17 +400,16 @@
                     </div>
                 `;
 
-                return `
-                    <div class="message ${isMine ? 'sent' : 'received'}">
-                        ${isMine ? menuHtml : ''}
-                        <div class="message-bubble">
-                            ${msg.message ? `<p>${escapeHtml(msg.message)}</p>` : ''}
-                            ${mediaHtml}
-                            <span class="message-time">${formatTime(msg.timestamp)}</span>
-                        </div>
-                        ${!isMine ? menuHtml : ''}
-                    </div>
-                `;
+              return `
+    <div class="message ${isMine ? 'sent' : 'received'}">
+        ${isMine ? menuHtml : ''}
+        <div class="message-bubble">
+            ${msg.message ? `<p>${escapeHtml(msg.message)}</p>` : ''}
+            ${mediaHtml}
+            <span class="message-time">${formatTime(msg.timestamp)}</span>
+        </div>
+    </div>
+`;
             }).join('');
             container.scrollTop = container.scrollHeight;
         }
