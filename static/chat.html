@@ -121,7 +121,7 @@
                     </div>
                     <div>
                         <h3 id="chat-username">User</h3>
-                        <span class="online-status">Active now</span>
+                        <span class="online-status" style="display:none">Active now</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 0.5rem;">
@@ -224,9 +224,7 @@
                     </svg>
                     <input type="text" id="search-users" placeholder="Search users...">
                 </div>
-                <div id="users-list" class="users-list">
-
-                </div>
+                <div id="users-list" class="users-list"></div>
             </div>
         </div>
     </div>
@@ -269,29 +267,25 @@
                 window.location.href = 'index.html';
             }
         }
+
         async function checkUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            const targetUserId = params.get('user');
 
-    const params = new URLSearchParams(window.location.search);
-
-    const targetUserId = params.get('user');
-
-
-
-    if (targetUserId) {
-
-        try {
-            const response = await fetch(`${API_URL}/users/${targetUserId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('User not found');
-            const user = await response.json();
-            await openConversation(user.id, user.username, user.avatar_url);
-            window.history.replaceState({}, document.title, 'chat.html');
-        } catch (error) {
-            console.error('Error opening chat from URL:', error);
-    }
-    }
-}
+            if (targetUserId) {
+                try {
+                    const response = await fetch(`${API_URL}/users/${targetUserId}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!response.ok) throw new Error('User not found');
+                    const user = await response.json();
+                    await openConversation(user.id, user.username, user.avatar_url);
+                    window.history.replaceState({}, document.title, 'chat.html');
+                } catch (error) {
+                    console.error('Error opening chat from URL:', error);
+                }
+            }
+        }
 
         async function loadConversations() {
             try {
@@ -330,8 +324,11 @@
                         <div class="conversation-info">
                             <div class="conversation-header">
                                 <span class="conversation-name">${escapeHtml(conv.username)}</span>
+                                ${conv.unread_count > 0 
+                                    ? `<span class="badge" style="background:var(--noir-white); color:black; padding:2px 6px; border-radius:10px; font-size:0.7rem; font-weight:bold;">${conv.unread_count}</span>` 
+                                    : ''}
                             </div>
-                            ${conv.last_message ? `<p class="last-message">${escapeHtml(conv.last_message.substring(0, 40))}...</p>` : ''}
+                            ${conv.last_message ? `<p class="last-message" style="${conv.unread_count > 0 ? 'color: white; font-weight: bold;' : ''}">${escapeHtml(conv.last_message.substring(0, 40))}...</p>` : ''}
                         </div>
                     </div>
                 `;
@@ -339,6 +336,13 @@
         }
 
         async function openConversation(userId, username, avatarUrl) {
+            // Clear media selection
+            selectedMediaFile = null;
+            document.getElementById('message-media').value = '';
+            document.getElementById('media-preview').style.display = 'none';
+            document.getElementById('preview-image').src = '';
+            document.getElementById('preview-video').src = '';
+
             currentConversationId = userId;
 
             document.querySelector('.empty-chat').style.display = 'none';
@@ -423,16 +427,16 @@
                     </div>
                 `;
 
-              return `
-    <div class="message ${isMine ? 'sent' : 'received'}">
-        ${isMine ? menuHtml : ''}
-        <div class="message-bubble">
-            ${msg.message ? `<p>${escapeHtml(msg.message)}</p>` : ''}
-            ${mediaHtml}
-            <span class="message-time">${formatTime(msg.timestamp)}</span>
-        </div>
-    </div>
-`;
+                return `
+                    <div class="message ${isMine ? 'sent' : 'received'}">
+                        ${isMine ? menuHtml : ''}
+                        <div class="message-bubble">
+                            ${msg.message ? `<p>${escapeHtml(msg.message)}</p>` : ''}
+                            ${mediaHtml}
+                            <span class="message-time">${formatTime(msg.timestamp)}</span>
+                        </div>
+                    </div>
+                `;
             }).join('');
             container.scrollTop = container.scrollHeight;
         }
@@ -555,6 +559,12 @@
             document.getElementById('message-media').click();
         }, false);
 
+        document.getElementById('search-conversations').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = conversations.filter(c => c.username.toLowerCase().includes(query));
+            displayConversations(filtered);
+        });
+
         document.getElementById('message-input').addEventListener('paste', function(e) {
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -618,7 +628,6 @@
             document.getElementById('preview-video').src = '';
         }, false);
 
-        // Send message function
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const content = input.value.trim();
@@ -641,7 +650,6 @@
                     formData.append('media', selectedMediaFile);
                 }
                 
-                // Always use FormData as backend expects Form parameters
                 const response = await fetch(`${API_URL}/messages`, {
                     method: 'POST',
                     headers: {
@@ -663,6 +671,7 @@
                 if (preview) preview.style.display = 'none';
                 
                 await loadMessages(currentConversationId, true);
+                loadConversations();
 
                 isSendingMessage = false;
                 messagePollingInterval = setInterval(() => {
@@ -682,14 +691,12 @@
             }
         }
 
-        // Send button click
         document.getElementById('send-btn').addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
             sendMessage();
         });
 
-        // Enter key in input
         document.getElementById('message-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -698,7 +705,6 @@
             }
         });
 
-        // Prevent form submission entirely
         document.getElementById('message-form').addEventListener('submit', function(e) {
             e.preventDefault();
             e.stopPropagation();
@@ -857,6 +863,7 @@
                                 conv.other_user_id
                             );
                             shownNotifications.add(notifKey);
+                            loadConversations();
                         }
                     }
                 }
@@ -914,69 +921,10 @@
 
         updateBadges();
         setInterval(updateBadges, 15000);
-        window.addEventListener('beforeunload', function(e) {
-            console.error('PAGE IS RELOADING!');
-            console.trace('Stack trace of reload:');
-        });
 
-    
-        window.addEventListener('error', function(e) {
-            console.error('Global error caught:', e.error, e.message, e.filename, e.lineno, e.colno);
-            e.preventDefault();
-            return true;
+        loadUserInfo().then(() => {
+            checkUrlParams();
         });
-
-        window.addEventListener('unhandledrejection', function(e) {
-            console.error('Unhandled promise rejection:', e.reason);
-            e.preventDefault();
-        });
-
-        document.querySelectorAll('.nav-item.active').forEach(link => {
-            link.addEventListener('click', function(e) {
-                console.log('Active nav link clicked - preventing');
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                return false;
-            }, true);
-        });
-
-        document.querySelectorAll('.nav-item').forEach(link => {
-            link.addEventListener('click', function(e) {
-                if (this.classList.contains('active')) {
-                    console.log('Prevented active nav navigation');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    return false;
-                }
-            }, true);
-        });
-
-        const originalPushState = history.pushState;
-        const originalReplaceState = history.replaceState;
-        
-        history.pushState = function() {
-            console.log('pushState called:', arguments);
-            return originalPushState.apply(this, arguments);
-        };
-        
-        history.replaceState = function() {
-            console.log('replaceState called:', arguments);
-            return originalReplaceState.apply(this, arguments);
-        };
-        window.addEventListener('beforeunload', function(e) {
-            console.log('Page is about to unload!');
-            console.trace();
-        });
-
-        console.log(' Chat page FULLY initialized - NEW CODE LOADED ');
-        console.log('Send button type:', document.getElementById('send-btn')?.type);
-        console.log('Form onsubmit:', document.getElementById('message-form')?.onsubmit);
-        loadUserInfo().then(() => 
-            {
-                checkUrlParams();
-            });
     </script>
 </body>
 </html>
